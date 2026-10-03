@@ -41,12 +41,14 @@
   }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  .app { max-width: 1180px; margin: 0 auto; padding: 18px 16px 108px; }
+  .app { max-width: 1180px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 28px) 16px 108px; }
   header.top {
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 12px; margin-bottom: 18px;
   }
-  .brand { display: flex; flex-direction: column; gap: 2px; }
+  .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .logo-wrap { background: #e6e8df; border-radius: 8px; padding: 5px 8px; display: inline-flex; }
+  .logo { height: 26px; width: auto; display: block; }
   .brand small { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; font-size: 11px; }
   .brand strong { font-size: 22px; font-weight: 560; letter-spacing: -.03em; }
   .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -119,13 +121,16 @@
   .tag.lost { color: var(--lost); }
   .tag.won { color: var(--won); }
   dialog {
-    width: min(680px, calc(100vw - 24px)); border: 1px solid var(--line); background: var(--surface);
+    width: min(680px, calc(100vw - 24px));
+    border: 1px solid var(--line); background: var(--surface);
     color: var(--text); border-radius: 18px; padding: 0; box-shadow: var(--shadow);
+    margin-top: max(36px, calc(env(safe-area-inset-top, 0px) + 48px));
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 72px);
   }
   dialog::backdrop { background: rgba(0,0,0,.62); }
   .modal-h { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .modal-h h2 { margin: 0; font-size: 16px; }
-  .modal-b { padding: 14px 16px 16px; max-height: min(74vh, 720px); overflow: auto; }
+  .modal-b { padding: 14px 16px 16px; max-height: min(58vh, 640px); overflow: auto; }
   .form { display: grid; gap: 10px; }
   @media (min-width: 700px) { .form.cols { grid-template-columns: 1fr 1fr; } .span2 { grid-column: span 2; } }
   .field { display: flex; flex-direction: column; gap: 5px; }
@@ -165,7 +170,7 @@
 <div class="app">
   <header class="top">
     <div class="brand">
-      <small>CRM interno</small>
+      <span class="logo-wrap"><img class="logo" src="logo-link.png" alt="Link Automation"></span>
       <strong>Pipeline y forecast</strong>
     </div>
     <div class="top-actions">

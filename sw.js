@@ -1,5 +1,5 @@
-const CACHE = "crm-interno-shell-v4";
-const FILES = ["./","index.html","manifest.json","icon-180.png","icon-192.png","icon-512.png"];
+const CACHE = "crm-interno-shell-v5";
+const FILES = ["./","index.html","manifest.json","icon-180.png","icon-192.png","icon-512.png","logo-link.png"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
