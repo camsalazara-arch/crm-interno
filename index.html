@@ -83,7 +83,8 @@
   .sub { color: var(--muted); font-size: 12px; }
   .pos { color: var(--won); }
   .neg { color: var(--lost); }
-  .section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 18px 0 10px; }
+  .section-title { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 18px 0 10px; }
+  @media (min-width: 720px) { .section-title { flex-direction: row; justify-content: space-between; align-items: baseline; } }
   .section-title h2 { margin: 0; font-size: 16px; font-weight: 560; }
   .bars { display: flex; flex-direction: column; gap: 10px; }
   .bar-row { display: grid; grid-template-columns: 132px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
@@ -144,10 +145,10 @@
   .empty { color: var(--muted); padding: 22px 8px; text-align: center; }
   footer.dock {
     position: fixed; left: 0; right: 0; bottom: 0; background: #0c0d0b;
-    border-top: 1px solid var(--line); padding: 10px 8px calc(12px + var(--safe-b));
-    display: none; justify-content: space-around; z-index: 20;
+    border-top: 1px solid var(--line); padding: 8px 6px calc(10px + var(--safe-b));
+    display: none; gap: 4px; overflow-x: auto; z-index: 20;
   }
-  footer.dock button { background: none; border: 0; color: var(--muted); font-size: 11px; min-width: 64px; }
+  footer.dock button { background: none; border: 0; color: var(--muted); font-size: 10px; min-width: 68px; flex: 0 0 auto; padding: 6px 4px; }
   footer.dock button.active { color: var(--accent); }
   @media (max-width: 720px) {
     nav.tabs { display: none; }
@@ -175,7 +176,7 @@
 <div class="app">
   <header class="top">
     <div class="brand">
-      <img class="logo" src="logo-link.png" alt="Link Automation">
+      <img class="logo" src="logo-link.png?v=2" alt="Link Automation">
       <strong>Pipeline y forecast</strong>
     </div>
     <div class="top-actions">
@@ -241,9 +242,9 @@ const LOSSES = ["", "Precio", "Competencia", "Timing", "Sin presupuesto", "Sin d
 const VIEWS = [
   ["tablero", "Tablero"],
   ["pipeline", "Pipeline"],
-  ["oportunidades", "Oportunidades"],
+  ["oportunidades", "Oport."],
   ["forecast", "Forecast"],
-  ["rendimiento", "Rendimiento"],
+  ["rendimiento", "Rendim."],
   ["informe", "Reportes"],
   ["ajustes", "Ajustes"]
 ];
