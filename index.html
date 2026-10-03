@@ -41,9 +41,9 @@
   }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  .app { max-width: 1180px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 56px) 16px 108px; }
+  .app { max-width: 1180px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 72px) 16px calc(env(safe-area-inset-bottom, 0px) + 132px); }
   @media (max-width: 720px) {
-    .app { padding-top: calc(env(safe-area-inset-top, 0px) + 76px); }
+    .app { padding-top: calc(env(safe-area-inset-top, 0px) + 104px); }
   }
   header.top {
     display: flex; align-items: flex-end; justify-content: space-between;
@@ -143,9 +143,9 @@
   .activity { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; font-size: 13px; }
   .empty { color: var(--muted); padding: 22px 8px; text-align: center; }
   footer.dock {
-    position: fixed; left: 0; right: 0; bottom: 0; background: rgba(12,13,11,.94);
-    border-top: 1px solid var(--line); padding: 8px 10px calc(8px + var(--safe-b));
-    display: none; justify-content: space-around; z-index: 5;
+    position: fixed; left: 0; right: 0; bottom: 0; background: #0c0d0b;
+    border-top: 1px solid var(--line); padding: 10px 8px calc(12px + var(--safe-b));
+    display: none; justify-content: space-around; z-index: 20;
   }
   footer.dock button { background: none; border: 0; color: var(--muted); font-size: 11px; min-width: 64px; }
   footer.dock button.active { color: var(--accent); }
@@ -154,6 +154,7 @@
     footer.dock { display: flex; }
     .bar-row { grid-template-columns: 96px 1fr; }
     .bar-row span.amt { grid-column: 2; }
+    #view { padding-bottom: 28px; }
   }
   .help { font-size: 13px; color: var(--muted); }
   .help b { color: var(--text); font-weight: 600; }
