@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CRM Interno · Pipeline y forecast</title>
+<style>
+  :root {
+    --bg: #0c0d0b;
+    --surface: #141613;
+    --surface-2: #1b1d19;
+    --line: #2a2d27;
+    --text: #e6e8df;
+    --muted: #8c9184;
+    --accent: #c9d4bc;
+    --accent-dim: #8fa384;
+    --won: #b7c7a4;
+    --lost: #a38880;
+    --commit: #d7d3c2;
+    --best: #c4cbb0;
+    --pipe: #8c9184;
+    --shadow: 0 16px 40px rgba(0,0,0,.35);
+    --radius: 14px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .app { max-width: 1180px; margin: 0 auto; padding: 18px 16px 108px; }
+  header.top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 12px; margin-bottom: 18px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 2px; }
+  .brand small { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; font-size: 11px; }
+  .brand strong { font-size: 22px; font-weight: 560; letter-spacing: -.03em; }
+  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .btn {
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 999px; padding: 8px 14px; min-height: 38px;
+  }
+  .btn:hover { border-color: #3d4138; }
+  .btn.primary { background: var(--accent); color: #171915; border-color: var(--accent); font-weight: 600; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--lost); }
+  nav.tabs {
+    display: flex; gap: 6px; overflow: auto; padding-bottom: 4px; margin-bottom: 16px;
+    scrollbar-width: none;
+  }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button {
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    border-radius: 999px; padding: 8px 12px; white-space: nowrap;
+  }
+  nav.tabs button.active { color: #171915; background: var(--accent); border-color: var(--accent); }
+  .grid { display: grid; gap: 12px; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 860px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 12px; font-weight: 560; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .metric { font-variant-numeric: tabular-nums; font-size: 22px; letter-spacing: -.03em; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .pos { color: var(--won); }
+  .neg { color: var(--lost); }
+  .section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 18px 0 10px; }
+  .section-title h2 { margin: 0; font-size: 16px; font-weight: 560; }
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 132px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+  .track { height: 8px; background: #22241f; border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); border-radius: 99px; }
+  .fill.pipe { background: #6e7368; }
+  .fill.best { background: #a8b39a; }
+  .fill.commit { background: var(--accent); }
+  .fill.closed { background: #dfe6d4; }
+  .kanban { display: flex; gap: 10px; overflow: auto; padding-bottom: 8px; }
+  .col { min-width: 250px; width: 250px; background: #10120f; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .col header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px; }
+  .col header b { font-size: 13px; font-weight: 600; }
+  .pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 7px; }
+  .deal {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    text-align: left; width: 100%;
+  }
+  .deal:hover { border-color: #3c4036; }
+  .deal .name { font-weight: 600; font-size: 14px; }
+  .deal .meta { color: var(--muted); font-size: 12px; margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 560; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #1a1c18; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters input, .filters select, .field input, .field select, .field textarea {
+    background: #10120f; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; width: 100%;
+  }
+  .filters input, .filters select { width: auto; min-width: 140px; }
+  .split { display: grid; gap: 12px; }
+  @media (min-width: 860px) { .split.two { grid-template-columns: 1.2fr .8fr; } .split.three { grid-template-columns: 1fr 1fr 1fr; } }
+  .note { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; border-radius: 99px; padding: 2px 8px; font-size: 11px; border: 1px solid var(--line); color: var(--accent); }
+  .tag.lost { color: var(--lost); }
+  .tag.won { color: var(--won); }
+  dialog {
+    width: min(680px, calc(100vw - 24px)); border: 1px solid var(--line); background: var(--surface);
+    color: var(--text); border-radius: 18px; padding: 0; box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.62); }
+  .modal-h { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .modal-h h2 { margin: 0; font-size: 16px; }
+  .modal-b { padding: 14px 16px 16px; max-height: min(74vh, 720px); overflow: auto; }
+  .form { display: grid; gap: 10px; }
+  @media (min-width: 700px) { .form.cols { grid-template-columns: 1fr 1fr; } .span2 { grid-column: span 2; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .row-actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 12px; }
+  .activity { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; font-size: 13px; }
+  .empty { color: var(--muted); padding: 22px 8px; text-align: center; }
+  footer.dock {
+    position: fixed; left: 0; right: 0; bottom: 0; background: rgba(12,13,11,.94);
+    border-top: 1px solid var(--line); padding: 8px 10px calc(8px + var(--safe-b));
+    display: none; justify-content: space-around; z-index: 5;
+  }
+  footer.dock button { background: none; border: 0; color: var(--muted); font-size: 11px; min-width: 64px; }
+  footer.dock button.active { color: var(--accent); }
+  @media (max-width: 720px) {
+    nav.tabs { display: none; }
+    footer.dock { display: flex; }
+    .bar-row { grid-template-columns: 96px 1fr; }
+    .bar-row span.amt { grid-column: 2; }
+  }
+  .help { font-size: 13px; color: var(--muted); }
+  .help b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <small>CRM interno</small>
+      <strong>Pipeline y forecast</strong>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="exportBtn">Exportar</button>
+      <button class="btn primary" id="newBtn">Nueva oportunidad</button>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="view"></main>
+</div>
+<footer class="dock" id="dock"></footer>
+
+<dialog id="dealDialog">
+  <form id="dealForm" method="dialog">
+    <div class="modal-h">
+      <h2 id="dealTitle">Oportunidad</h2>
+      <button class="btn ghost" type="button" id="closeDeal">Cerrar</button>
+    </div>
+    <div class="modal-b">
+      <div class="form cols">
+        <div class="field span2"><label>Nombre de la oportunidad</label><input name="name" required placeholder="Contrato mantenimiento planta"></div>
+        <div class="field"><label>Cuenta</label><input name="account" placeholder="Empresa"></div>
+        <div class="field"><label>Contacto</label><input name="contact" placeholder="Nombre"></div>
+        <div class="field"><label>Monto (CLP)</label><input name="amount" type="number" min="0" step="1" required></div>
+        <div class="field"><label>Fecha estimada de cierre</label><input name="closeDate" type="date" required></div>
+        <div class="field"><label>Etapa</label><select name="stage" id="stageSelect"></select></div>
+        <div class="field"><label>Probabilidad %</label><input name="probability" type="number" min="0" max="100" step="1"></div>
+        <div class="field"><label>Categoría de forecast</label><select name="forecast" id="forecastSelect"></select></div>
+        <div class="field"><label>Responsable</label><input name="owner" placeholder="Yo"></div>
+        <div class="field"><label>Origen</label><select name="source" id="sourceSelect"></select></div>
+        <div class="field"><label>Motivo de pérdida</label><select name="lossReason" id="lossSelect"></select></div>
+        <div class="field span2"><label>Notas</label><textarea name="notes" rows="3" placeholder="Necesidad, presupuesto, decisor, siguiente paso"></textarea></div>
+      </div>
+      <div id="activityBox"></div>
+      <div class="row-actions">
+        <button class="btn danger" type="button" id="deleteDeal">Eliminar</button>
+        <button class="btn primary" type="submit" value="save">Guardar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const STAGES = [
+  { id: "prospeccion", label: "Prospección", prob: 10, cat: "pipeline" },
+  { id: "calificacion", label: "Calificación", prob: 20, cat: "pipeline" },
+  { id: "analisis", label: "Análisis de necesidades", prob: 40, cat: "pipeline" },
+  { id: "propuesta", label: "Propuesta", prob: 65, cat: "best_case" },
+  { id: "negociacion", label: "Negociación", prob: 85, cat: "commit" },
+  { id: "ganado", label: "Cerrado ganado", prob: 100, cat: "closed" },
+  { id: "perdido", label: "Cerrado perdido", prob: 0, cat: "omitted" }
+];
+const CATS = [
+  { id: "pipeline", label: "Pipeline" },
+  { id: "best_case", label: "Best case" },
+  { id: "commit", label: "Commit" },
+  { id: "closed", label: "Closed" },
+  { id: "omitted", label: "Omitido" }
+];
+const SOURCES = ["Outbound", "Inbound", "Referido", "Evento", "Partner", "Cliente actual"];
+const LOSSES = ["", "Precio", "Competencia", "Timing", "Sin presupuesto", "Sin decisión", "No fit", "Otro"];
+const VIEWS = [
+  ["tablero", "Tablero"],
+  ["pipeline", "Pipeline"],
+  ["oportunidades", "Oportunidades"],
+  ["forecast", "Forecast"],
+  ["rendimiento", "Rendimiento"],
+  ["ajustes", "Ajustes"]
+];
+
+const KEY = "crm-interno-v1";
+let state = load();
+let view = "tablero";
+let editingId = null;
+let query = "";
+let stageFilter = "all";
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return seed();
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function money(n) {
+  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n || 0);
+}
+function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0]; }
+function catLabel(id) { return (CATS.find(c => c.id === id) || CATS[0]).label; }
+function monthKey(d) { return (d || "").slice(0, 7); }
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+function inPeriod(dateStr, period) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + "T12:00:00");
+  const now = new Date();
+  if (period === "month") return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  const q = Math.floor(now.getMonth() / 3);
+  return d.getFullYear() === now.getFullYear() && Math.floor(d.getMonth() / 3) === q;
+}
+function periodLabel() {
+  const now = new Date();
+  if (state.settings.period === "month") {
+    return now.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  }
+  return "Q" + (Math.floor(now.getMonth() / 3) + 1) + " " + now.getFullYear();
+}
+function openDeals() { return state.deals.filter(d => d.stage !== "ganado" && d.stage !== "perdido"); }
+
+function seed() {
+  const y = 2026;
+  const deals = [
+    deal("Mantención línea chancado", "Minera Norte", "Paula Riquelme", 42000000, "2026-10-18", "negociacion", "Commit comercial", "Outbound"),
+    deal("Contrato repuestos críticos", "Puerto Andino", "Luis Herrera", 18500000, "2026-10-28", "propuesta", "Cotización enviada", "Referido"),
+    deal("Servicio de confiabilidad", "Planta Litoral", "Ana Vidal", 27600000, "2026-11-12", "analisis", "Levantando necesidad", "Inbound"),
+    deal("Upgrade sistema de control", "Energía Atacama", "Marco Díaz", 61000000, "2026-11-20", "calificacion", "Presupuesto por confirmar", "Evento"),
+    deal("Suministro anual EPP", "Constructora Sol", "Elena Muñoz", 9400000, "2026-10-09", "ganado", "OC recibida", "Cliente actual", "2026-09-22"),
+    deal("Proyecto parada de planta", "Fundición Pacífico", "Jorge Salas", 53000000, "2026-12-05", "prospeccion", "Primer contacto", "Outbound"),
+    deal("Inspección predictiva", "Terminal Norte", "Carla Soto", 12800000, "2026-10-15", "perdido", "Eligieron al incumbente", "Partner", "2026-09-02", "Competencia"),
+    deal("Contrato marco lubricantes", "Flota Austral", "Iván Paredes", 15200000, "2026-10-30", "negociacion", "Revisión legal", "Inbound"),
+    deal("Implementación tablero de producción", "Alimentos Sur", "Rosa Campos", 21000000, "2026-11-04", "propuesta", "Esperando aprobación", "Referido"),
+    deal("Servicio de turno extra Q4", "Logística Seca", "Tomás Araya", 7600000, "2026-09-26", "ganado", "Cerrado en septiembre", "Outbound", "2026-08-11")
+  ];
+  return {
+    settings: { quota: 80000000, period: "month", company: "Operación comercial" },
+    deals
+  };
+  function deal(name, account, contact, amount, closeDate, stage, notes, source, created, loss) {
+    const st = stageOf(stage);
+    return {
+      id: uid(), name, account, contact, amount, closeDate, stage,
+      probability: st.prob, forecast: st.cat, owner: "Yo", source,
+      notes, lossReason: loss || "", createdAt: created || "2026-09-01",
+      activities: [{ at: created || "2026-09-01", text: "Oportunidad creada" }]
+    };
+  }
+}
+
+function rollup(deals) {
+  const sums = { pipeline: 0, best_case: 0, commit: 0, closed: 0, omitted: 0, weighted: 0, open: 0 };
+  deals.forEach(d => {
+    sums[d.forecast] = (sums[d.forecast] || 0) + Number(d.amount || 0);
+    if (d.stage !== "perdido") sums.weighted += Number(d.amount || 0) * (Number(d.probability || 0) / 100);
+    if (d.stage !== "ganado" && d.stage !== "perdido") sums.open += Number(d.amount || 0);
+  });
+  return {
+    ...sums,
+    commitRoll: sums.commit + sums.closed,
+    bestRoll: sums.best_case + sums.commit + sums.closed,
+    pipeRoll: sums.pipeline + sums.best_case + sums.commit + sums.closed
+  };
+}
+
+function render() {
+  document.getElementById("tabs").innerHTML = VIEWS.map(([id, label]) =>
+    `<button class="${view === id ? "active" : ""}" data-view="${id}">${label}</button>`
+  ).join("");
+  document.getElementById("dock").innerHTML = VIEWS.filter(v => v[0] !== "ajustes").map(([id, label]) =>
+    `<button class="${view === id ? "active" : ""}" data-view="${id}">${label}</button>`
+  ).join("") + `<button class="${view === "ajustes" ? "active" : ""}" data-view="ajustes">Ajustes</button>`;
+  const root = document.getElementById("view");
+  root.innerHTML = ({
+    tablero: viewBoard,
+    pipeline: viewPipeline,
+    oportunidades: viewTable,
+    forecast: viewForecast,
+    rendimiento: viewPerf,
+    ajustes: viewSettings
+  })[view]();
+  root.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => openDeal(el.dataset.open)));
+  root.querySelectorAll("[data-stage]").forEach(el => el.addEventListener("change", onStageMove));
+}
+
+function viewBoard() {
+  const periodDeals = state.deals.filter(d => inPeriod(d.closeDate, state.settings.period));
+  const allOpen = openDeals();
+  const r = rollup(periodDeals);
+  const quota = Number(state.settings.quota || 0);
+  const gap = quota - r.commitRoll;
+  const coverage = quota ? (r.pipeRoll / quota) : 0;
+  return `
+    <div class="grid kpis">
+      ${kpi("Cerrado", money(r.closed), periodLabel())}
+      ${kpi("Commit", money(r.commitRoll), "Cerrado + comprometido")}
+      ${kpi("Best case", money(r.bestRoll), "Commit + upside probable")}
+      ${kpi("Brecha a cuota", money(Math.abs(gap)), gap <= 0 ? "Cuota cubierta por commit" : "Falta para la cuota", gap <= 0 ? "pos" : "neg")}
+    </div>
+    <div class="section-title"><h2>Forecast del periodo</h2><span class="sub">Cuota ${money(quota)} · cobertura pipeline ${coverage.toFixed(1)}x</span></div>
+    <div class="card">
+      <div class="bars">
+        ${bar("Closed", r.closed, quota, "closed")}
+        ${bar("Commit", r.commitRoll, quota, "commit")}
+        ${bar("Best case", r.bestRoll, quota, "best")}
+        ${bar("Pipeline", r.pipeRoll, quota, "pipe")}
+      </div>
+      <p class="note" style="margin:12px 0 0">El rollup es acumulativo, igual que en Salesforce: Commit incluye lo cerrado, Best case incluye Commit, Pipeline incluye todo lo no omitido.</p>
+    </div>
+    <div class="section-title"><h2>Pipeline abierto ponderado</h2><span class="sub">${money(allOpen.reduce((a,d)=>a+d.amount*(d.probability/100),0))} esperado</span></div>
+    <div class="card" style="overflow:auto">
+      <table>
+        <thead><tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th class="num">Prob.</th><th class="num">Esperado</th><th>Cierre</th></tr></thead>
+        <tbody>
+          ${allOpen.sort((a,b)=>a.closeDate.localeCompare(b.closeDate)).map(d => `
+            <tr class="clickable" data-open="${d.id}">
+              <td><b>${esc(d.name)}</b><div class="sub">${esc(d.account)}</div></td>
+              <td>${stageOf(d.stage).label}</td>
+              <td class="num">${money(d.amount)}</td>
+              <td class="num">${d.probability}%</td>
+              <td class="num">${money(d.amount * d.probability / 100)}</td>
+              <td>${d.closeDate}</td>
+            </tr>`).join("") || `<tr><td colspan="6" class="empty">Sin oportunidades abiertas.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+}
+function kpi(label, value, sub, tone) {
+  return `<div class="card"><h3>${label}</h3><div class="metric ${tone || ""}">${value}</div><div class="sub">${sub}</div></div>`;
+}
+function bar(label, value, quota, cls) {
+  const pct = quota ? Math.min(100, Math.round(value / quota * 100)) : 0;
+  return `<div class="bar-row"><span>${label}</span><div class="track"><div class="fill ${cls}" style="width:${pct}%"></div></div><span class="amt">${money(value)}</span></div>`;
+}
+function viewPipeline() {
+  const groups = STAGES.map(s => ({ ...s, deals: state.deals.filter(d => d.stage === s.id) }));
+  return `<div class="kanban">${groups.map(g => `
+    <section class="col">
+      <header><b>${g.label}</b><span class="pill">${g.deals.length} · ${g.prob}%</span></header>
+      ${g.deals.map(d => `
+        <button class="deal" data-open="${d.id}">
+          <div class="name">${esc(d.name)}</div>
+          <div class="sub">${esc(d.account)}</div>
+          <div class="meta"><span>${money(d.amount)}</span><span>${d.closeDate.slice(5)}</span></div>
+        </button>`).join("") || `<div class="empty">Vacío</div>`}
+    </section>`).join("")}</div>
+    <p class="note">Mover de etapa se hace dentro de la oportunidad. Al cambiar la etapa se propone la probabilidad y la categoría de forecast, y puedes sobreescribirlas.</p>`;
+}
+function viewTable() {
+  const rows = state.deals.filter(d => {
+    const blob = `${d.name} ${d.account} ${d.owner} ${d.contact}`.toLowerCase();
+    const okQ = !query || blob.includes(query.toLowerCase());
+    const okS = stageFilter === "all" || d.stage === stageFilter;
+    return okQ && okS;
+  }).sort((a,b) => a.closeDate.localeCompare(b.closeDate));
+  return `
+    <div class="filters">
+      <input id="q" placeholder="Buscar cuenta u oportunidad" value="${esc(query)}">
+      <select id="sf">
+        <option value="all">Todas las etapas</option>
+        ${STAGES.map(s => `<option value="${s.id}" ${stageFilter===s.id?"selected":""}>${s.label}</option>`).join("")}
+      </select>
+    </div>
+    <div class="card" style="overflow:auto">
+      <table>
+        <thead><tr><th>Oportunidad</th><th>Etapa</th><th>Forecast</th><th class="num">Monto</th><th>Cierre</th><th>Responsable</th></tr></thead>
+        <tbody>
+          ${rows.map(d => `<tr class="clickable" data-open="${d.id}">
+            <td><b>${esc(d.name)}</b><div class="sub">${esc(d.account)}</div></td>
+            <td>${stageOf(d.stage).label}</td>
+            <td><span class="tag ${d.stage==="ganado"?"won":""} ${d.stage==="perdido"?"lost":""}">${catLabel(d.forecast)}</span></td>
+            <td class="num">${money(d.amount)}</td>
+            <td>${d.closeDate}</td>
+            <td>${esc(d.owner || "—")}</td>
+          </tr>`).join("") || `<tr><td colspan="6" class="empty">Sin resultados.</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+}
+function viewForecast() {
+  const months = nextMonths(4);
+  return `
+    <p class="help">Cada oportunidad entra al mes de su fecha de cierre. <b>Closed</b> ya está ganado. <b>Commit</b> es lo que te comprometes a cerrar. <b>Best case</b> es el upside razonable. <b>Pipeline</b> está en curso, todavía no comprometido. <b>Omitido</b> no entra al número.</p>
+    <div class="grid" style="margin-top:12px">
+      ${months.map(m => {
+        const deals = state.deals.filter(d => monthKey(d.closeDate) === m.key);
+        const r = rollup(deals);
+        return `<div class="card">
+          <h3>${m.label}</h3>
+          <div class="metric">${money(r.commitRoll)}</div>
+          <div class="sub">Commit del mes · best case ${money(r.bestRoll)}</div>
+          <div class="bars" style="margin-top:12px">
+            ${bar("Closed", r.closed, Math.max(r.pipeRoll, 1), "closed")}
+            ${bar("Commit", r.commit, Math.max(r.pipeRoll, 1), "commit")}
+            ${bar("Best case", r.best_case, Math.max(r.pipeRoll, 1), "best")}
+            ${bar("Pipeline", r.pipeline, Math.max(r.pipeRoll, 1), "pipe")}
+          </div>
+          <div style="margin-top:10px">${deals.map(d => `<div class="activity"><b>${esc(d.name)}</b> · ${money(d.amount)} · ${catLabel(d.forecast)}</div>`).join("") || `<div class="empty">Sin cierres este mes</div>`}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+function nextMonths(n) {
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    out.push({
+      key: d.toISOString().slice(0, 7),
+      label: d.toLocaleDateString("es-CL", { month: "long", year: "numeric" })
+    });
+  }
+  return out;
+}
+function viewPerf() {
+  const won = state.deals.filter(d => d.stage === "ganado");
+  const lost = state.deals.filter(d => d.stage === "perdido");
+  const decided = won.length + lost.length;
+  const winRate = decided ? won.length / decided : 0;
+  const avgWon = won.length ? won.reduce((a,d)=>a+Number(d.amount),0) / won.length : 0;
+  const cycles = won.map(d => daysBetween(d.createdAt, d.closeDate)).filter(n => n >= 0);
+  const avgCycle = cycles.length ? cycles.reduce((a,b)=>a+b,0) / cycles.length : 0;
+  const open = openDeals();
+  const velocity = avgCycle ? (open.length * winRate * avgWon) / (avgCycle / 30) : 0;
+  const byStage = STAGES.filter(s => s.id !== "perdido").map(s => {
+    const reached = state.deals.filter(d => stageIndex(d.stage) >= stageIndex(s.id)).length;
+    return { ...s, reached };
+  });
+  const maxReached = Math.max(...byStage.map(s => s.reached), 1);
+  const lossMap = {};
+  lost.forEach(d => { const k = d.lossReason || "Sin motivo"; lossMap[k] = (lossMap[k] || 0) + 1; });
+  const owners = {};
+  state.deals.forEach(d => {
+    const k = d.owner || "Sin responsable";
+    owners[k] = owners[k] || { won: 0, open: 0, lost: 0, amountWon: 0 };
+    if (d.stage === "ganado") { owners[k].won++; owners[k].amountWon += Number(d.amount); }
+    else if (d.stage === "perdido") owners[k].lost++;
+    else owners[k].open += Number(d.amount);
+  });
+  return `
+    <div class="grid kpis">
+      ${kpi("Tasa de cierre", Math.round(winRate * 100) + "%", `${won.length} ganadas / ${decided} decididas`)}
+      ${kpi("Ticket ganado", money(avgWon), "Promedio de cierres")}
+      ${kpi("Ciclo", Math.round(avgCycle) + " días", "Creación a cierre ganado")}
+      ${kpi("Velocidad", money(velocity), "Pipeline × win rate × ticket / ciclo mensual")}
+    </div>
+    <div class="section-title"><h2>Embudo por etapa</h2><span class="sub">Oportunidades que llegaron al menos hasta esa etapa</span></div>
+    <div class="card"><div class="bars">
+      ${byStage.map(s => `<div class="bar-row"><span>${s.label}</span><div class="track"><div class="fill" style="width:${Math.round(s.reached / maxReached * 100)}%"></div></div><span class="amt">${s.reached}</span></div>`).join("")}
+    </div></div>
+    <div class="split two" style="margin-top:12px">
+      <div class="card">
+        <h3>Motivos de pérdida</h3>
+        ${Object.keys(lossMap).length ? Object.entries(lossMap).map(([k,v]) => `<div class="activity">${esc(k)} · ${v}</div>`).join("") : `<div class="empty">Aún no hay perdidas con motivo.</div>`}
+      </div>
+      <div class="card">
+        <h3>Rendimiento por responsable</h3>
+        ${Object.entries(owners).map(([k,v]) => `<div class="activity"><b>${esc(k)}</b><div class="sub">${v.won} ganadas · ${money(v.amountWon)} · abierto ${money(v.open)} · ${v.lost} perdidas</div></div>`).join("")}
+      </div>
+    </div>`;
+}
+function stageIndex(id) { return STAGES.findIndex(s => s.id === id); }
+function daysBetween(a, b) {
+  if (!a || !b) return 0;
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+function viewSettings() {
+  return `
+    <div class="split two">
+      <div class="card">
+        <h3>Cuota y periodo</h3>
+        <div class="form" style="margin-top:10px">
+          <div class="field"><label>Nombre de la operación</label><input id="company" value="${esc(state.settings.company || "")}"></div>
+          <div class="field"><label>Cuota del periodo (CLP)</label><input id="quota" type="number" min="0" value="${state.settings.quota}"></div>
+          <div class="field"><label>Periodo de la cuota</label>
+            <select id="period">
+              <option value="month" ${state.settings.period==="month"?"selected":""}>Mes en curso</option>
+              <option value="quarter" ${state.settings.period==="quarter"?"selected":""}>Trimestre en curso</option>
+            </select>
+          </div>
+          <button class="btn primary" id="saveSettings" type="button">Guardar ajustes</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Datos</h3>
+        <p class="note">Todo queda en este navegador. Exporta un JSON para respaldo o para pasar el CRM a otro dispositivo.</p>
+        <div class="top-actions" style="justify-content:flex-start; margin-top:10px">
+          <button class="btn" id="importBtn" type="button">Importar JSON</button>
+          <button class="btn" id="sampleBtn" type="button">Cargar ejemplos</button>
+          <button class="btn danger" id="wipeBtn" type="button">Vaciar</button>
+        </div>
+        <input id="file" type="file" accept="application/json" hidden>
+        <div class="help" style="margin-top:14px">
+          <b>Cómo leer el número.</b> La etapa dice dónde está el trato. La probabilidad arma el ingreso esperado (monto × probabilidad). La categoría de forecast arma el compromiso comercial: pipeline, best case, commit, closed u omitido. Pueden no coincidir: una negociación puede seguir en best case si el cliente todavía no confirmó presupuesto.
+        </div>
+      </div>
+    </div>`;
+}
+
+function esc(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&","<":"<",">":">","\"":""","'":"&#39;" }[c]));
+}
+
+function openDeal(id) {
+  editingId = id || null;
+  const d = state.deals.find(x => x.id === id) || {
+    name: "", account: "", contact: "", amount: "", closeDate: todayISO(),
+    stage: "prospeccion", probability: 10, forecast: "pipeline", owner: "Yo",
+    source: "Outbound", notes: "", lossReason: "", activities: []
+  };
+  const form = document.getElementById("dealForm");
+  document.getElementById("dealTitle").textContent = id ? "Editar oportunidad" : "Nueva oportunidad";
+  document.getElementById("stageSelect").innerHTML = STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join("");
+  document.getElementById("forecastSelect").innerHTML = CATS.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
+  document.getElementById("sourceSelect").innerHTML = SOURCES.map(s => `<option>${s}</option>`).join("");
+  document.getElementById("lossSelect").innerHTML = LOSSES.map(s => `<option value="${s}">${s || "No aplica"}</option>`).join("");
+  ["name","account","contact","amount","closeDate","stage","probability","forecast","owner","source","notes","lossReason"].forEach(k => {
+    if (form.elements[k]) form.elements[k].value = d[k] ?? "";
+  });
+  document.getElementById("activityBox").innerHTML = (d.activities || []).length
+    ? `<div class="activity"><b>Actividad</b>${d.activities.map(a => `<div class="sub">${a.at} · ${esc(a.text)}</div>`).join("")}</div>`
+    : "";
+  document.getElementById("deleteDeal").style.display = id ? "inline-flex" : "none";
+  document.getElementById("dealDialog").showModal();
+}
+
+function onStageMove() {}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("[data-view]"); if (!b) return;
+  view = b.dataset.view; render();
+});
+document.getElementById("dock").addEventListener("click", e => {
+  const b = e.target.closest("[data-view]"); if (!b) return;
+  view = b.dataset.view; render();
+});
+document.getElementById("newBtn").addEventListener("click", () => openDeal(null));
+document.getElementById("closeDeal").addEventListener("click", () => document.getElementById("dealDialog").close());
+document.getElementById("stageSelect").addEventListener("change", e => {
+  const st = stageOf(e.target.value);
+  const form = document.getElementById("dealForm");
+  form.elements.probability.value = st.prob;
+  form.elements.forecast.value = st.cat;
+});
+document.getElementById("dealForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    name: form.elements.name.value.trim(),
+    account: form.elements.account.value.trim(),
+    contact: form.elements.contact.value.trim(),
+    amount: Number(form.elements.amount.value || 0),
+    closeDate: form.elements.closeDate.value,
+    stage: form.elements.stage.value,
+    probability: Number(form.elements.probability.value || 0),
+    forecast: form.elements.forecast.value,
+    owner: form.elements.owner.value.trim() || "Yo",
+    source: form.elements.source.value,
+    notes: form.elements.notes.value.trim(),
+    lossReason: form.elements.lossReason.value
+  };
+  if (editingId) {
+    const d = state.deals.find(x => x.id === editingId);
+    const prev = d.stage;
+    Object.assign(d, data);
+    if (prev !== data.stage) d.activities.push({ at: todayISO(), text: "Etapa: " + stageOf(data.stage).label });
+  } else {
+    state.deals.push({ id: uid(), createdAt: todayISO(), activities: [{ at: todayISO(), text: "Oportunidad creada" }], ...data });
+  }
+  save();
+  document.getElementById("dealDialog").close();
+  render();
+});
+document.getElementById("deleteDeal").addEventListener("click", () => {
+  if (!editingId) return;
+  state.deals = state.deals.filter(d => d.id !== editingId);
+  save();
+  document.getElementById("dealDialog").close();
+  render();
+});
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "crm-interno.json";
+  a.click();
+});
+document.getElementById("view").addEventListener("input", e => {
+  if (e.target.id === "q") { query = e.target.value; viewTablePatch(); }
+});
+document.getElementById("view").addEventListener("change", e => {
+  if (e.target.id === "sf") { stageFilter = e.target.value; render(); }
+});
+function viewTablePatch() {
+  if (view !== "oportunidades") return;
+  const el = document.getElementById("q");
+  const pos = el ? el.selectionStart : 0;
+  render();
+  const again = document.getElementById("q");
+  if (again) { again.focus(); again.setSelectionRange(pos, pos); }
+}
+document.getElementById("view").addEventListener("click", e => {
+  if (e.target.id === "saveSettings") {
+    state.settings.company = document.getElementById("company").value.trim();
+    state.settings.quota = Number(document.getElementById("quota").value || 0);
+    state.settings.period = document.getElementById("period").value;
+    save(); render();
+  }
+  if (e.target.id === "sampleBtn") { state = seed(); save(); render(); }
+  if (e.target.id === "wipeBtn") {
+    state = { settings: state.settings, deals: [] }; save(); render();
+  }
+  if (e.target.id === "importBtn") document.getElementById("file").click();
+});
+document.body.addEventListener("change", e => {
+  if (e.target.id !== "file" || !e.target.files[0]) return;
+  const file = e.target.files[0];
+  file.text().then(text => {
+    const next = JSON.parse(text);
+    if (!next.deals || !next.settings) throw new Error("formato");
+    state = next; save(); render();
+  }).catch(() => alert("El archivo no tiene el formato del CRM."));
+});
+
+render();
+</script>
+</body>
+</html>
