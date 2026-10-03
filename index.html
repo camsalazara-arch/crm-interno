@@ -41,19 +41,23 @@
   }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  .app { max-width: 1180px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 72px) 16px calc(env(safe-area-inset-bottom, 0px) + 132px); }
-  @media (max-width: 720px) {
-    .app { padding-top: calc(env(safe-area-inset-top, 0px) + 104px); }
+  .app { max-width: 1180px; margin: 0 auto; padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 148px); }
+  @media (display-mode: standalone) {
+    .app { padding-top: calc(env(safe-area-inset-top, 0px) + 18px); }
   }
   header.top {
-    display: flex; align-items: flex-end; justify-content: space-between;
+    display: flex; flex-direction: column; align-items: stretch;
     gap: 12px; margin-bottom: 18px;
   }
+  @media (min-width: 860px) {
+    header.top { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+  }
   .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-  .logo { height: 28px; width: auto; display: block; }
+  .logo { height: 28px; width: auto; display: block; background: transparent; }
+  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
   .brand small { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; font-size: 11px; }
   .brand strong { font-size: 22px; font-weight: 560; letter-spacing: -.03em; }
-  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
   .btn {
     background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
     border-radius: 999px; padding: 8px 14px; min-height: 38px;
@@ -148,7 +152,7 @@
     border-top: 1px solid var(--line); padding: 8px 6px calc(10px + var(--safe-b));
     display: none; gap: 4px; overflow-x: auto; z-index: 20;
   }
-  footer.dock button { background: none; border: 0; color: var(--muted); font-size: 10px; min-width: 68px; flex: 0 0 auto; padding: 6px 4px; }
+  footer.dock button { background: none; border: 0; color: var(--muted); font-size: 12px; flex: 0 0 auto; padding: 8px 10px; white-space: nowrap; }
   footer.dock button.active { color: var(--accent); }
   @media (max-width: 720px) {
     nav.tabs { display: none; }
