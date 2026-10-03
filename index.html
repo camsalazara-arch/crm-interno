@@ -234,7 +234,7 @@ const VIEWS = [
   ["oportunidades", "Oportunidades"],
   ["forecast", "Forecast"],
   ["rendimiento", "Rendimiento"],
-  ["informe", "Informe"],
+  ["informe", "Reportes"],
   ["ajustes", "Ajustes"]
 ];
 
@@ -527,49 +527,90 @@ function daysBetween(a, b) {
   if (!a || !b) return 0;
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
+let reportKind = "resumen";
 function viewReport() {
-  return `<div class="no-print" style="margin-bottom:12px"><button class="btn primary" id="printReport" type="button">Guardar PDF</button><p class="note">En el computador elige Guardar como PDF. En el iPhone, en la hoja de impresión, pellizca la vista previa o usa Compartir.</p></div>${reportMarkup()}`;
+  const kinds = [
+    ["resumen", "Resumen"],
+    ["pipeline", "Pipeline"],
+    ["forecast", "Forecast"],
+    ["cierres", "Cierres"],
+    ["responsable", "Responsable"],
+    ["origen", "Origen"]
+  ];
+  return `<div class="no-print filters">
+    ${kinds.map(([id, label]) => `<button class="btn ${reportKind===id?"primary":""}" data-report="${id}" type="button">${label}</button>`).join("")}
+    <button class="btn primary" id="printReport" type="button">Guardar PDF</button>
+  </div>
+  <p class="no-print note">Cada reporte se imprime o se guarda en PDF. En el computador, Guardar como PDF. En el iPhone, pellizca la vista previa o usa Compartir.</p>
+  ${reportMarkup()}`;
 }
 function reportMarkup() {
+  const when = new Date().toLocaleString("es-CL", { dateStyle: "long", timeStyle: "short" });
+  const head = `<h1>${({resumen:"Resumen ejecutivo",pipeline:"Pipeline por etapa",forecast:"Forecast",cierres:"Cierres y pérdidas",responsable:"Rendimiento por responsable",origen:"Origen de las oportunidades"})[reportKind]}</h1><p>${esc(state.settings.company || "CRM interno")} · ${periodLabel()} · ${when}</p>`;
+  return `<article class="report-sheet card">${head}${reportBody()}</article>`;
+}
+function reportBody() {
   const periodDeals = state.deals.filter(d => inPeriod(d.closeDate, state.settings.period));
   const r = rollup(periodDeals);
   const quota = Number(state.settings.quota || 0);
   const gap = quota - r.commitRoll;
-  const coverage = quota ? (r.pipeRoll / quota) : 0;
   const open = openDeals().slice().sort((a, b) => a.closeDate.localeCompare(b.closeDate));
   const won = state.deals.filter(d => d.stage === "ganado");
   const lost = state.deals.filter(d => d.stage === "perdido");
   const decided = won.length + lost.length;
   const winRate = decided ? Math.round(won.length / decided * 100) : 0;
-  const avgWon = won.length ? won.reduce((a, d) => a + Number(d.amount), 0) / won.length : 0;
-  const cycles = won.map(d => daysBetween(d.createdAt, d.closeDate)).filter(n => n >= 0);
-  const avgCycle = cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : 0;
+  if (reportKind === "pipeline") {
+    const rows = STAGES.map(s => {
+      const deals = state.deals.filter(d => d.stage === s.id);
+      const amount = deals.reduce((a, d) => a + Number(d.amount), 0);
+      return `<tr><td>${s.label}</td><td>${deals.length}</td><td class="nums">${money(amount)}</td><td>${s.prob}%</td><td>${catLabel(s.cat)}</td></tr>`;
+    }).join("");
+    return `<table><thead><tr><th>Etapa</th><th>N</th><th>Monto</th><th>Prob.</th><th>Forecast</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  if (reportKind === "forecast") {
+    const months = nextMonths(4).map(m => {
+      const rr = rollup(state.deals.filter(d => monthKey(d.closeDate) === m.key));
+      return `<tr><td>${m.label}</td><td class="nums">${money(rr.closed)}</td><td class="nums">${money(rr.commitRoll)}</td><td class="nums">${money(rr.bestRoll)}</td><td class="nums">${money(rr.pipeRoll)}</td></tr>`;
+    }).join("");
+    return `<p>Cuota del periodo ${money(quota)}. Commit ${money(r.commitRoll)}. Brecha ${money(gap)}.</p><table><thead><tr><th>Mes</th><th>Closed</th><th>Commit</th><th>Best case</th><th>Pipeline</th></tr></thead><tbody>${months}</tbody></table>`;
+  }
+  if (reportKind === "cierres") {
+    const losses = {};
+    lost.forEach(d => { const k = d.lossReason || "Sin motivo"; losses[k] = (losses[k] || 0) + Number(d.amount); });
+    return `<p>Tasa de cierre ${winRate}%. ${won.length} ganadas, ${lost.length} perdidas.</p>
+      <h2>Ganadas</h2><p>${won.map(d => `${esc(d.name)} · ${esc(d.account)} · ${money(d.amount)} · ${d.closeDate}`).join("<br>") || "Sin cierres."}</p>
+      <h2>Perdidas</h2><p>${lost.map(d => `${esc(d.name)} · ${money(d.amount)} · ${esc(d.lossReason || "Sin motivo")}`).join("<br>") || "Sin pérdidas."}</p>
+      <h2>Monto perdido por motivo</h2><p>${Object.entries(losses).map(([k, v]) => `${esc(k)}: ${money(v)}`).join("<br>") || "Sin motivos."}</p>`;
+  }
+  if (reportKind === "responsable") {
+    const owners = {};
+    state.deals.forEach(d => {
+      const k = d.owner || "Sin responsable";
+      owners[k] = owners[k] || { won: 0, lost: 0, open: 0, amountWon: 0 };
+      if (d.stage === "ganado") { owners[k].won++; owners[k].amountWon += Number(d.amount); }
+      else if (d.stage === "perdido") owners[k].lost++;
+      else owners[k].open += Number(d.amount);
+    });
+    const rows = Object.entries(owners).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.won}</td><td class="nums">${money(v.amountWon)}</td><td class="nums">${money(v.open)}</td><td>${v.lost}</td></tr>`).join("");
+    return `<table><thead><tr><th>Responsable</th><th>Ganadas</th><th>Monto ganado</th><th>Abierto</th><th>Perdidas</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  if (reportKind === "origen") {
+    const sources = {};
+    state.deals.forEach(d => {
+      const k = d.source || "Sin origen";
+      sources[k] = sources[k] || { n: 0, won: 0, amount: 0 };
+      sources[k].n++;
+      sources[k].amount += Number(d.amount);
+      if (d.stage === "ganado") sources[k].won++;
+    });
+    const rows = Object.entries(sources).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td>${v.won}</td><td class="nums">${money(v.amount)}</td></tr>`).join("");
+    return `<table><thead><tr><th>Origen</th><th>Oportunidades</th><th>Ganadas</th><th>Monto</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  const coverage = quota ? (r.pipeRoll / quota) : 0;
   const weighted = open.reduce((a, d) => a + Number(d.amount) * Number(d.probability) / 100, 0);
-  const losses = {};
-  lost.forEach(d => { const k = d.lossReason || "Sin motivo"; losses[k] = (losses[k] || 0) + 1; });
-  const when = new Date().toLocaleString("es-CL", { dateStyle: "long", timeStyle: "short" });
-  const film = `En ${periodLabel()} la cuota es ${money(quota)}. Hay ${money(r.closed)} cerrado y el commit llega a ${money(r.commitRoll)}, así que ${gap <= 0 ? "la cuota ya está cubierta por lo comprometido" : "faltan " + money(gap) + " para cubrir la cuota con commit"}. El best case es ${money(r.bestRoll)} y el pipeline del periodo cubre ${coverage.toFixed(1)} veces la cuota. El pipeline abierto, ponderado, vale ${money(weighted)}. De lo ya decidido, la tasa de cierre es ${winRate}% y el ticket ganado promedio es ${money(avgWon)}.`;
-  const rows = open.map(d => `<tr><td>${esc(d.name)}<div>${esc(d.account)}</div></td><td>${stageOf(d.stage).label}</td><td>${catLabel(d.forecast)}</td><td class="nums">${money(d.amount)}</td><td class="nums">${d.probability}%</td><td>${d.closeDate}</td></tr>`).join("");
-  const months = nextMonths(4).map(m => {
-    const rr = rollup(state.deals.filter(d => monthKey(d.closeDate) === m.key));
-    return `<tr><td>${m.label}</td><td class="nums">${money(rr.closed)}</td><td class="nums">${money(rr.commitRoll)}</td><td class="nums">${money(rr.bestRoll)}</td><td class="nums">${money(rr.pipeRoll)}</td></tr>`;
-  }).join("");
-  return `<article class="report-sheet card">
-    <h1>Informe comercial</h1>
-    <p>${esc(state.settings.company || "CRM interno")} · ${when}</p>
-    <h2>Película del negocio</h2>
-    <p>${film}</p>
-    <h2>Periodo ${periodLabel()}</h2>
-    <p>Cerrado ${money(r.closed)} · Commit ${money(r.commitRoll)} · Best case ${money(r.bestRoll)} · Pipeline ${money(r.pipeRoll)} · Brecha ${money(gap)}</p>
-    <p>Ciclo promedio ${avgCycle} días · ${won.length} ganadas · ${lost.length} perdidas.</p>
-    <h2>Forecast de los próximos meses</h2>
-    <table><thead><tr><th>Mes</th><th>Closed</th><th>Commit</th><th>Best case</th><th>Pipeline</th></tr></thead><tbody>${months}</tbody></table>
-    <h2>Pipeline abierto</h2>
-    <table><thead><tr><th>Oportunidad</th><th>Etapa</th><th>Forecast</th><th>Monto</th><th>Prob.</th><th>Cierre</th></tr></thead><tbody>${rows || `<tr><td colspan="6">Sin oportunidades abiertas.</td></tr>`}</tbody></table>
-    <h2>Cierres y pérdidas</h2>
-    <p>${won.map(d => `${esc(d.name)} · ${money(d.amount)} · ${d.closeDate}`).join("<br>") || "Sin cierres registrados."}</p>
-    <p>${Object.entries(losses).map(([k, v]) => `${esc(k)}: ${v}`).join(" · ") || "Sin pérdidas con motivo."}</p>
-  </article>`;
+  const film = `En ${periodLabel()} la cuota es ${money(quota)}. Hay ${money(r.closed)} cerrado y el commit llega a ${money(r.commitRoll)}, así que ${gap <= 0 ? "la cuota ya está cubierta por lo comprometido" : "faltan " + money(gap) + " para cubrirla con commit"}. El best case es ${money(r.bestRoll)} y el pipeline cubre ${coverage.toFixed(1)} veces la cuota. Lo abierto ponderado vale ${money(weighted)}. La tasa de cierre de lo decidido es ${winRate}%.`;
+  const rows = open.map(d => `<tr><td>${esc(d.name)}</td><td>${stageOf(d.stage).label}</td><td class="nums">${money(d.amount)}</td><td>${d.closeDate}</td></tr>`).join("");
+  return `<h2>Película</h2><p>${film}</p><h2>Pipeline abierto</h2><table><thead><tr><th>Oportunidad</th><th>Etapa</th><th>Monto</th><th>Cierre</th></tr></thead><tbody>${rows || `<tr><td colspan="4">Sin oportunidades abiertas.</td></tr>`}</tbody></table>`;
 }
 function viewSettings() {
   return `
@@ -689,6 +730,8 @@ document.getElementById("deleteDeal").addEventListener("click", () => {
 });
 document.getElementById("reportBtn").addEventListener("click", () => { view = "informe"; render(); setTimeout(() => window.print(), 60); });
 document.getElementById("view").addEventListener("click", e => {
+  const report = e.target.closest("[data-report]");
+  if (report) { reportKind = report.dataset.report; render(); }
   if (e.target.id === "printReport") window.print();
 });
 document.getElementById("exportBtn").addEventListener("click", () => {
