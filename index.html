@@ -98,10 +98,17 @@
   .fill.best { background: #a8b39a; }
   .fill.commit { background: var(--accent); }
   .fill.closed { background: #dfe6d4; }
-  .kanban { display: flex; gap: 10px; overflow: auto; padding-bottom: 8px; }
-  .col { min-width: 250px; width: 250px; background: #10120f; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .kanban { display: flex; gap: 12px; overflow: auto; padding-bottom: 12px; }
+  .col { min-width: 230px; width: 230px; background: #10120f; border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 16px; padding: 10px; }
+  .col.ganado { border-top-color: #8fbf8a; }
+  .col.perdido { border-top-color: #a36a62; }
   .col header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px; }
   .col header b { font-size: 13px; font-weight: 600; }
+  .col .sum { color: var(--accent); font-size: 12px; margin: -4px 0 8px; }
+  .deal { width: 100%; text-align: left; background: #171915; border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+  .deal .name { font-weight: 600; font-size: 14px; }
+  .deal .bar { height: 4px; background: #2a2d27; border-radius: 99px; margin-top: 8px; overflow: hidden; }
+  .deal .bar span { display: block; height: 100%; background: var(--accent); }
   .pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 7px; }
   .deal {
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px;
@@ -515,18 +522,20 @@ function bar(label, value, quota, cls) {
   return `<div class="bar-row"><span>${label}</span><div class="track"><div class="fill ${cls}" style="width:${pct}%"></div></div><span class="amt">${money(value)}</span></div>`;
 }
 function viewPipeline() {
+  const max = Math.max(...state.deals.map(d => Number(d.amount) || 0), 1);
   const groups = STAGES.map(s => ({ ...s, deals: state.deals.filter(d => d.stage === s.id) }));
   return `<div class="kanban">${groups.map(g => `
-    <section class="col">
-      <header><b>${g.label}</b><span class="pill">${g.deals.length} · ${g.prob}%</span></header>
+    <section class="col ${g.id}">
+      <header><b>${g.label}</b><span class="pill">${g.deals.length}</span></header>
+      <div class="sum">${money(g.deals.reduce((a,d)=>a+Number(d.amount||0),0))}</div>
       ${g.deals.map(d => `
         <button class="deal" data-open="${d.id}">
           <div class="name">${esc(d.name)}</div>
           <div class="sub">${esc(d.account)}</div>
-          <div class="meta"><span>${money(d.amount)}</span><span>${d.closeDate.slice(5)}</span></div>
+          <div class="meta"><span>${money(d.amount)}</span><span>${d.probability}%</span></div>
+          <div class="bar"><span style="width:${Math.max(8, Math.round((Number(d.amount)||0)/max*100))}%"></span></div>
         </button>`).join("") || `<div class="empty">Vacío</div>`}
-    </section>`).join("")}</div>
-    <p class="note">Mover de etapa se hace dentro de la oportunidad. Al cambiar la etapa se propone la probabilidad y la categoría de forecast, y puedes sobreescribirlas.</p>`;
+    </section>`).join("")}</div>`;
 }
 function viewTable() {
   const rows = state.deals.filter(d => {
