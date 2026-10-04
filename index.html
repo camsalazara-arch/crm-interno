@@ -317,24 +317,21 @@ async function cloudAuth(kind) {
     note.textContent = err.message;
   }
 }
+const CLOUD_ID = "link-automation";
 async function pushCloud() {
-  if (!session) return;
   await fetch(SB_URL + "/rest/v1/deals?on_conflict=id", {
     method: "POST",
-    headers: Object.assign(sbHeaders(true), { Prefer: "resolution=merge-duplicates,return=minimal" }),
-    body: JSON.stringify({ id: session.user.id, payload: state, updated_at: new Date().toISOString() })
+    headers: Object.assign(sbHeaders(false), { Prefer: "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify({ id: CLOUD_ID, payload: state, updated_at: new Date().toISOString() })
   });
 }
 async function pullCloud() {
-  if (!session) return;
-  const res = await fetch(SB_URL + "/rest/v1/deals?select=payload&id=eq." + session.user.id, { headers: sbHeaders(true) });
+  const res = await fetch(SB_URL + "/rest/v1/deals?select=payload&id=eq." + CLOUD_ID, { headers: sbHeaders(false) });
   if (!res.ok) return;
   const rows = await res.json();
   if (rows[0] && rows[0].payload && rows[0].payload.deals) {
     state = rows[0].payload;
     localStorage.setItem(KEY, JSON.stringify(state));
-  } else {
-    await pushCloud();
   }
 }
 function loginView() {
@@ -437,12 +434,6 @@ function rollup(deals) {
 }
 
 function render() {
-  if (!session) {
-    document.getElementById("tabs").innerHTML = "";
-    document.getElementById("dock").innerHTML = "";
-    document.getElementById("view").innerHTML = loginView();
-    return;
-  }
   document.getElementById("tabs").innerHTML = VIEWS.map(([id, label]) =>
     `<button class="${view === id ? "active" : ""}" data-view="${id}">${label}</button>`
   ).join("");
