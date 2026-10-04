@@ -455,15 +455,28 @@ function render() {
 }
 
 function viewBoard() {
+  const won = state.deals.filter(d => d.stage === "ganado");
+  const pending = state.deals.filter(d => d.stage !== "ganado" && d.stage !== "perdido");
+  const wonSum = won.reduce((a, d) => a + Number(d.amount || 0), 0);
+  const pendingSum = pending.reduce((a, d) => a + Number(d.amount || 0), 0);
   const periodDeals = state.deals.filter(d => inPeriod(d.closeDate, state.settings.period));
   const allOpen = openDeals();
   const r = rollup(periodDeals);
   const quota = Number(state.settings.quota || 0);
   const gap = quota - r.commitRoll;
   const coverage = quota ? (r.pipeRoll / quota) : 0;
+  const row = d => `<tr class="clickable" data-open="${d.id}"><td><b>${esc(d.name)}</b><div class="sub">${esc(d.account)}</div></td><td class="num">${money(d.amount)}</td><td>${d.closeDate}</td></tr>`;
   return `
     <div class="grid kpis">
-      ${kpi("Cerrado", money(r.closed), periodLabel())}
+      ${kpi("Ganado", money(wonSum), won.length + " órdenes ya cerradas", "pos")}
+      ${kpi("Pendiente de cierre", money(pendingSum), pending.length + " por empujar", "neg")}
+    </div>
+    <div class="section-title"><h2>Ya ganado</h2><span class="sub">No requiere cierre. Hay que cumplir entrega y facturar.</span></div>
+    <div class="card" style="overflow:auto"><table><thead><tr><th>Oportunidad</th><th class="num">Monto</th><th>Cierre</th></tr></thead><tbody>${won.map(row).join("") || `<tr><td colspan="3" class="empty">Sin ganadas.</td></tr>`}</tbody></table></div>
+    <div class="section-title"><h2>Pendiente de cierre</h2><span class="sub">Esto es lo que hay que mover.</span></div>
+    <div class="card" style="overflow:auto"><table><thead><tr><th>Oportunidad</th><th class="num">Monto</th><th>Cierre</th></tr></thead><tbody>${pending.sort((a,b)=>a.closeDate.localeCompare(b.closeDate)).map(row).join("") || `<tr><td colspan="3" class="empty">Nada pendiente.</td></tr>`}</tbody></table></div>
+    <div class="grid kpis">
+      ${kpi("Cerrado en el periodo", money(r.closed), periodLabel())}
       ${kpi("Commit", money(r.commitRoll), "Cerrado + comprometido")}
       ${kpi("Best case", money(r.bestRoll), "Commit + upside probable")}
       ${kpi("Brecha a cuota", money(Math.abs(gap)), gap <= 0 ? "Cuota cubierta por commit" : "Falta para la cuota", gap <= 0 ? "pos" : "neg")}
@@ -476,12 +489,11 @@ function viewBoard() {
         ${bar("Best case", r.bestRoll, quota, "best")}
         ${bar("Pipeline", r.pipeRoll, quota, "pipe")}
       </div>
-      <p class="note" style="margin:12px 0 0">El rollup es acumulativo, igual que en Salesforce: Commit incluye lo cerrado, Best case incluye Commit, Pipeline incluye todo lo no omitido.</p>
     </div>
-    <div class="section-title"><h2>Pipeline abierto ponderado</h2><span class="sub">${money(allOpen.reduce((a,d)=>a+d.amount*(d.probability/100),0))} esperado</span></div>
+    <div class="section-title"><h2>Detalle abierto</h2><span class="sub">${money(allOpen.reduce((a,d)=>a+d.amount*(d.probability/100),0))} esperado</span></div>
     <div class="card" style="overflow:auto">
       <table>
-        <thead><tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th class="num">Prob.</th><th class="num">Esperado</th><th>Cierre</th></tr></thead>
+        <thead><tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th class="num">Prob.</th><th>Cierre</th></tr></thead>
         <tbody>
           ${allOpen.sort((a,b)=>a.closeDate.localeCompare(b.closeDate)).map(d => `
             <tr class="clickable" data-open="${d.id}">
@@ -489,9 +501,8 @@ function viewBoard() {
               <td>${stageOf(d.stage).label}</td>
               <td class="num">${money(d.amount)}</td>
               <td class="num">${d.probability}%</td>
-              <td class="num">${money(d.amount * d.probability / 100)}</td>
               <td>${d.closeDate}</td>
-            </tr>`).join("") || `<tr><td colspan="6" class="empty">Sin oportunidades abiertas.</td></tr>`}
+            </tr>`).join("") || `<tr><td colspan="5" class="empty">Sin oportunidades abiertas.</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -893,7 +904,7 @@ document.body.addEventListener("change", e => {
 
 render();
 recover();
-pullCloud().then(() => { if (session) render(); });
+pullCloud().then(() => render());
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(function () {});
 }
