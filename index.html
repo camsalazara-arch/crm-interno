@@ -274,6 +274,71 @@ function save() {
     const tx = db.transaction("data", "readwrite");
     tx.objectStore("data").put(raw, "state");
   }).catch(() => {});
+  pushCloud();
+}
+const SB_URL = "https://yukrxzzirbxwjqetktqn.supabase.co";
+const SB_KEY = "sb_publishable_ld-jxttId955oZOZzT_mCQ_iCLP793C";
+let session = null;
+try { session = JSON.parse(localStorage.getItem("crm-sb-session") || "null"); } catch (e) {}
+function sbHeaders(authed) {
+  return {
+    apikey: SB_KEY,
+    Authorization: "Bearer " + (authed && session ? session.access_token : SB_KEY),
+    "Content-Type": "application/json"
+  };
+}
+function rememberSession(data) {
+  if (!data.access_token || !data.user) return false;
+  session = { access_token: data.access_token, user: { id: data.user.id, email: data.user.email } };
+  localStorage.setItem("crm-sb-session", JSON.stringify(session));
+  return true;
+}
+async function cloudAuth(kind) {
+  const email = document.getElementById("cloudEmail").value.trim();
+  const password = document.getElementById("cloudPass").value;
+  const note = document.getElementById("cloudNote");
+  note.textContent = "Conectando…";
+  try {
+    const path = kind === "signup" ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+    const res = await fetch(SB_URL + path, {
+      method: "POST",
+      headers: sbHeaders(false),
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || data.message || "No se pudo entrar");
+    if (!rememberSession(data)) {
+      note.textContent = "Revisa el correo y confirma la cuenta. Después entra con la misma clave.";
+      return;
+    }
+    await pullCloud();
+    render();
+  } catch (err) {
+    note.textContent = err.message;
+  }
+}
+async function pushCloud() {
+  if (!session) return;
+  await fetch(SB_URL + "/rest/v1/deals?on_conflict=id", {
+    method: "POST",
+    headers: Object.assign(sbHeaders(true), { Prefer: "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify({ id: session.user.id, payload: state, updated_at: new Date().toISOString() })
+  });
+}
+async function pullCloud() {
+  if (!session) return;
+  const res = await fetch(SB_URL + "/rest/v1/deals?select=payload&id=eq." + session.user.id, { headers: sbHeaders(true) });
+  if (!res.ok) return;
+  const rows = await res.json();
+  if (rows[0] && rows[0].payload && rows[0].payload.deals) {
+    state = rows[0].payload;
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } else {
+    await pushCloud();
+  }
+}
+function loginView() {
+  return `<div class="card"><h3>Cuenta compartida</h3><p class="note">Entra con el mismo correo en el celular, la tableta y el computador. Lo que guardes queda en la base, no solo en este aparato.</p><div class="form" style="margin-top:12px"><div class="field"><label>Correo</label><input id="cloudEmail" type="email" autocomplete="username"></div><div class="field"><label>Clave</label><input id="cloudPass" type="password" autocomplete="current-password"></div><div class="row-actions"><button class="btn" id="signupBtn" type="button">Crear cuenta</button><button class="btn primary" id="loginBtn" type="button">Entrar</button></div><p class="note" id="cloudNote"></p></div></div>`;
 }
 function idb() {
   return new Promise((resolve, reject) => {
@@ -372,6 +437,12 @@ function rollup(deals) {
 }
 
 function render() {
+  if (!session) {
+    document.getElementById("tabs").innerHTML = "";
+    document.getElementById("dock").innerHTML = "";
+    document.getElementById("view").innerHTML = loginView();
+    return;
+  }
   document.getElementById("tabs").innerHTML = VIEWS.map(([id, label]) =>
     `<button class="${view === id ? "active" : ""}" data-view="${id}">${label}</button>`
   ).join("");
@@ -776,6 +847,8 @@ document.getElementById("deleteDeal").addEventListener("click", () => {
 });
 document.getElementById("reportBtn").addEventListener("click", () => { view = "informe"; render(); setTimeout(() => window.print(), 60); });
 document.getElementById("view").addEventListener("click", e => {
+  if (e.target.id === "loginBtn") cloudAuth("login");
+  if (e.target.id === "signupBtn") cloudAuth("signup");
   const report = e.target.closest("[data-report]");
   if (report) { reportKind = report.dataset.report; render(); }
   if (e.target.id === "printReport") window.print();
@@ -829,6 +902,7 @@ document.body.addEventListener("change", e => {
 
 render();
 recover();
+pullCloud().then(() => { if (session) render(); });
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(function () {});
 }
