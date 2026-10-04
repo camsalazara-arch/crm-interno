@@ -478,10 +478,19 @@ function viewBoard() {
       ${kpi("Ganado", money(wonSum), won.length + " órdenes ya cerradas", "pos")}
       ${kpi("Pendiente de cierre", money(pendingSum), pending.length + " por empujar", "neg")}
     </div>
-    <div class="section-title"><h2>Ya ganado</h2><span class="sub">No requiere cierre. Hay que cumplir entrega y facturar.</span></div>
-    <div class="card" style="overflow:auto"><table><thead><tr><th>Oportunidad</th><th class="num">Monto</th><th>Cierre</th></tr></thead><tbody>${won.map(row).join("") || `<tr><td colspan="3" class="empty">Sin ganadas.</td></tr>`}</tbody></table></div>
-    <div class="section-title"><h2>Pendiente de cierre</h2><span class="sub">Esto es lo que hay que mover.</span></div>
-    <div class="card" style="overflow:auto"><table><thead><tr><th>Oportunidad</th><th class="num">Monto</th><th>Cierre</th></tr></thead><tbody>${pending.sort((a,b)=>a.closeDate.localeCompare(b.closeDate)).map(row).join("") || `<tr><td colspan="3" class="empty">Nada pendiente.</td></tr>`}</tbody></table></div>
+    <div class="section-title"><h2>Tablero ejecutivo</h2><span class="sub">Actualizado desde la base · busca Pozos Lázaro en ganado</span></div>
+    <div class="kanban">
+      <section class="col ganado">
+        <header><b>Ganado</b><span class="pill">${won.length}</span></header>
+        <div class="sum">${money(wonSum)}</div>
+        ${won.map(d => `<button class="deal" data-open="${d.id}"><div class="name">${esc(d.name)}</div><div class="sub">${esc(d.account)}</div><div class="meta"><span>${money(d.amount)}</span><span>Cerrada</span></div></button>`).join("")}
+      </section>
+      <section class="col">
+        <header><b>Pendiente de cierre</b><span class="pill">${pending.length}</span></header>
+        <div class="sum">${money(pendingSum)}</div>
+        ${pending.sort((a,b)=>a.closeDate.localeCompare(b.closeDate)).map(d => `<button class="deal" data-open="${d.id}"><div class="name">${esc(d.name)}</div><div class="sub">${esc(d.account)} · ${stageOf(d.stage).label}</div><div class="meta"><span>${money(d.amount)}</span><span>${d.closeDate.slice(5)}</span></div><div class="bar"><span style="width:${Math.max(12, d.probability)}%"></span></div></button>`).join("")}
+      </section>
+    </div>
     <div class="grid kpis">
       ${kpi("Cerrado en el periodo", money(r.closed), periodLabel())}
       ${kpi("Commit", money(r.commitRoll), "Cerrado + comprometido")}
